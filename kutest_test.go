@@ -22,7 +22,7 @@ func TestKutest(t *testing.T) {
 
 var _ = Describe("my tests", func() {
 	Specify("something", func() {
-		WithPod(PodOptions{
+		WithJob(JobOptions{
 			Namespace: "default",
 			Labels:    map[string]string{"foo": "bar"},
 		}, func() {

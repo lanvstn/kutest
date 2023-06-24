@@ -5,9 +5,10 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/onsi/ginkgo/v2"
-	v1 "k8s.io/api/core/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 )
@@ -34,27 +35,27 @@ type ConfigSpec struct {
 	DefaultImagePullPolicy string `default:"Always"`
 }
 
-type PodOptions struct {
+type JobOptions struct {
 	Namespace string
 	Labels    map[string]string
 
-	// MutatePod apply transformations to the pod that would be created
-	MutatePod func(*v1.Pod) *v1.Pod
+	// MutateJob apply transformations to the pod that would be created
+	MutateJob func(*batchv1.Job) *batchv1.Job
 }
 
-// WithPod runs f inside a new pod specified by PodOptions.
+// WithJob runs f inside a new pod specified by PodOptions.
 // If the pod fails or anything goes wrong it will call Fail on Ginkgo.
-func WithPod(opts PodOptions, f func()) {
+func WithJob(opts JobOptions, f func()) {
 	ginkgo.GinkgoHelper()
 
-	podName := fmt.Sprintf("%s-%s", sessID, getShortTestID())
+	jobName := fmt.Sprintf("%s-%s", sessID, getShortTestID())
 
 	hostname, err := os.Hostname()
 	if err != nil {
 		ginkgo.Fail(fmt.Sprintf("cannot get hostname: %v", err))
 	}
 
-	if hostname == podName {
+	if strings.HasPrefix(hostname, jobName+"-") {
 		// I am on the pod!
 		f()
 		return
@@ -62,13 +63,13 @@ func WithPod(opts PodOptions, f func()) {
 		return // not on the controller, nothing to see here
 	}
 
-	// Make the pod, we are the controller.
-	err = runPod(podName, opts)
+	// Make the job, we are the controller.
+	err = createJob(jobName, opts)
 	if err != nil {
 		ginkgo.Fail(fmt.Sprintf("pod creation failed: %v", err))
 	}
 
-	err = waitExit(podName, opts.Namespace)
+	err = waitExit(jobName, opts.Namespace)
 	if err != nil {
 		ginkgo.Fail(fmt.Sprintf("pod failed: %v", err))
 	}

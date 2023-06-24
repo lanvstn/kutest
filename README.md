@@ -12,10 +12,10 @@ Here's how it looks:
 
 ```go
 Specify("something", func() {
-    WithPod(PodOptions{
+    WithJob(JobOptions{
         Namespace: "default",
     }, func() {
-        fmt.Println("hello from pod!")
+        fmt.Println("hello from job!")
     })
 
     fmt.Println("we're done!")
@@ -45,13 +45,13 @@ Here's a quick example with Kind:
 
 ## How it works
 
-WithPod makes your test suite replicate itself throughout your cluster. Based on the current pod name, the library is aware whether it is running inside the pod where the passed function is desired to run. 
+WithJob makes your test suite replicate itself throughout your cluster. Based on the current pod name, the library is aware whether it is running inside the job where the passed function is desired to run. 
 
-The first instance of the running test suite is called the _controller_. This is determined by the `KUTEST_SESSID` environment variable: if it is set, the current instance is part of an existing session and cannot be the controller. The controller creates the session ID and adds it through the environment variable to each pod it creates.
+The first instance of the running test suite is called the _controller_. This is determined by the `KUTEST_SESSID` environment variable: if it is set, the current instance is part of an existing session and cannot be the controller. The controller creates the session ID and adds it through the environment variable to each job it creates.
 
-This gives the appearance of the test function being magically sent to a new pod for execution, but without actually sending the code around and all complexity that comes with it.
+This gives the appearance of the test function being magically sent to a new job for execution, but without actually sending the code around and all complexity that comes with it.
 
-It's important to note that this library is only intended to be used in test suites that do most of the heavy lifting _inside_ your platform, so inside pods that are created by the suite. Any logic outside of the helpers offered by Kutest will be executed on every copy it makes of itself.
+It's important to note that this library is only intended to be used in test suites that do most of the heavy lifting _inside_ your platform, so inside jobs that are created by the suite. Any logic outside of the helpers offered by Kutest will be executed on every copy it makes of itself.
 
 ## Project status
 
