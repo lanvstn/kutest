@@ -7,6 +7,7 @@ It aims to be easy to operate in the following ways:
 - Nothing is required to be deployed on the cluster to run tests.
 - Readable test code that cuts down on the noise and gets to the point of the test.
 - You can run the suite from your local machine or from the cluster depending on your use-case. It works the same. This brings you a nice local development loop to iterate on changes without the logic being too different in a continuous integration context.
+- Parallelism-friendly to speed up test suite performance.
 
 Here's how it looks:
 
@@ -40,10 +41,44 @@ Here's a quick example with Kind:
 
 > docker build . -t "$KUTEST_IMAGE" && \
     kind load docker-image "$KUTEST_IMAGE" && \
-    ginkgo run
+    ginkgo run --json-report=report.json
+
+> go run ./cmd/kutesthtml < report.json > report.html
 ```
 
+## Using with different test frameworks
+
+You may have an exisiting test suite. For example, let's say you're doing continuous load testing using K6.
+
+This is do-able with Kutest as well: you don't have to implement everything in Go.
+
+1. Write a Go helper around your test tool
+2. Ensure the dependencies are packaged in your test container image
+3. Use your helper. E.g.:
+
+```golang
+It("passes the K6 loadtest", func() {
+    WithJob(JobOptions{
+        Namespace: "default",
+        // TODO: may want to override some resource limits here
+    }, func() {
+        // TODO: implement K6Helper, which runs a local k6 binary with the given file
+        K6Helper("my_loadtest.js")
+    })
+})
+```
+
+## About reporting
+
+Ginkgo has a built-in report generation system. You can use its output by passing `--json-report=report.json` to `gingko run`. 
+
+`./cmd/kutesthtml` provides a basic `html/template` coverter for this JSON format that uses stdin and stdout. 
+
+On the resulting page you can view the result of the suite, every test, and the logs of the jobs that were started by Kutest.
+
 ## How it works
+
+### WithJob
 
 WithJob makes your test suite replicate itself throughout your cluster. Based on the current pod name, the library is aware whether it is running inside the job where the passed function is desired to run. 
 
@@ -55,16 +90,14 @@ It's important to note that this library is only intended to be used in test sui
 
 ## Project status
 
-Proof of concept. Alpha software - API subject to change!
+Alpha software - API subject to change!
 
 Accepting contributions but make an issue before starting a PR.
 
 ## TODO
 
 - Selective test execution (propagation of Ginkgo test filters)
-- Log propagation (through Kubernetes API)
-- Reporting tools (HTML reports)
-- Generic resource helpers
+- Generic resource helpers e.g. `WithResources([]GenericResource, func())`
 
 ---
 

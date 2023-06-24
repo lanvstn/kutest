@@ -3,8 +3,10 @@ package kutest
 import (
 	"context"
 	"fmt"
+	"io"
 
 	"github.com/go-errors/errors"
+	"github.com/samber/lo"
 	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -98,7 +100,7 @@ func waitExit(jobName, namespace string) error {
 		FieldSelector: fmt.Sprintf("metadata.name=%s", jobName),
 	})
 	if err != nil {
-		return fmt.Errorf("watch failure: %w", err)
+		return errors.Errorf("watch failure: %w", err)
 	}
 
 	for event := range w.ResultChan() {
@@ -113,4 +115,33 @@ func waitExit(jobName, namespace string) error {
 	}
 
 	return nil
+}
+
+func retrieveLogs(jobName, namespace string) ([]byte, error) {
+	pods, err := clientset.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("%s=%s", batchv1.JobNameLabel, jobName),
+	})
+	if err != nil {
+		return nil, errors.Errorf("list pods failure: %w", err)
+	}
+
+	podPhasePredicate := func(podPhase v1.PodPhase) func(pod v1.Pod, _ int) bool {
+		return func(pod v1.Pod, _ int) bool {
+			return pod.Status.Phase == podPhase
+		}
+	}
+
+	candidatePods := append(lo.Filter[v1.Pod](pods.Items, podPhasePredicate(v1.PodSucceeded)),
+		lo.Filter[v1.Pod](pods.Items, podPhasePredicate(v1.PodFailed))...)
+
+	if len(candidatePods) == 0 {
+		return nil, errors.New("tried to retrieve logs but no matching pods found in a final phase")
+	}
+
+	r, err := clientset.CoreV1().Pods(namespace).GetLogs(candidatePods[0].Name, &v1.PodLogOptions{}).Stream(context.Background())
+	if err != nil {
+		return nil, errors.Errorf("stream logs failure: %w", err)
+	}
+
+	return io.ReadAll(r)
 }

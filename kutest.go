@@ -2,6 +2,7 @@ package kutest
 
 import (
 	"crypto/sha1"
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"os"
@@ -73,6 +74,13 @@ func WithJob(opts JobOptions, f func()) {
 	if err != nil {
 		ginkgo.Fail(fmt.Sprintf("pod failed: %v", err))
 	}
+
+	logs, err := retrieveLogs(jobName, opts.Namespace)
+	if err != nil {
+		ginkgo.Fail(fmt.Sprintf("cannot get logs: %v", err))
+	}
+
+	ginkgo.AddReportEntry("kutest-log-b64-"+jobName, base64.StdEncoding.EncodeToString(logs), ginkgo.ReportEntryVisibilityNever)
 }
 
 // getShortTestID returns an 8-char hash based on the current spec text

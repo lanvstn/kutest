@@ -2,3 +2,6 @@
 /TODO
 
 /kutest.test
+
+*.json
+/*.html
