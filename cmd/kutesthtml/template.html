@@ -22,7 +22,7 @@
             <p>State: {{ .State }}</p>
             {{ range $name, $logs := displayLogs .ReportEntries }}
                 <h4>Pod logs for {{ $name }}</h4>
-                <pre>
+                <pre style="background-color: #111111; color: #dddddd; padding: 1em; margin: 1em;" >
                     {{ $logs }}
                 </pre>
             {{ end }}

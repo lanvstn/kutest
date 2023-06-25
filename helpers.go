@@ -45,8 +45,6 @@ func WithJob(opts JobOptions, f func()) {
 		ginkgo.Fail(fmt.Sprintf("cannot get hostname: %v", err))
 	}
 
-	fmt.Fprintf(ginkgo.GinkgoWriter, "id=%s hostname=%s\n", id, hostname)
-
 	if strings.HasPrefix(hostname, id+"-") {
 		fmt.Fprintln(ginkgo.GinkgoWriter, "Running WithJob function")
 		f() // I am on the pod!

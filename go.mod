@@ -7,6 +7,7 @@ require (
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/onsi/ginkgo/v2 v2.9.7
 	github.com/onsi/gomega v1.27.8
+	github.com/robert-nix/ansihtml v1.0.1
 	github.com/samber/lo v1.38.1
 	k8s.io/api v0.27.3
 	k8s.io/apimachinery v0.27.3
