@@ -12,22 +12,18 @@ It aims to be easy to operate in the following ways:
 Here's how it looks:
 
 ```go
-Specify("something", func() {
-    WithJob(JobOptions{
-        Namespace: "default",
-    }, func() {
-        fmt.Println("hello from job!")
+Specify("hello world", func() {
+    WithJob(JobOptions{Namespace: "default"}, func() {
+        fmt.Fprintln(GinkgoWriter, "hello from pod!")
     })
-
-    fmt.Println("we're done!")
 })
 ```
+
+Read [kutest_test.go](./kutest_test.go) for examples, such as testing connectivity between two pods. 
 
 ## Usage
 
 Install to your project: `go get github.com/lanvstn/kutest`
-
-Then read [kutest_test.go](./kutest_test.go) for examples.
 
 You'll want to package your test as a container image. Read [Dockerfile](./Dockerfile) for an example.
 
@@ -37,16 +33,36 @@ Here's a quick example with Kind:
 > go install github.com/onsi/ginkgo/v2/ginkgo
 
 > export KUTEST_IMAGE="localhost/kutest-example:latest"
-> export KUTEST_DEFAULTIMAGEPULLPOLICY="IfNotPresent"
+> export KUTEST_DEFAULTIMAGEPULLPOLICY="IfNotPresent" # Only for Kind clusters.
 
 > docker build . -t "$KUTEST_IMAGE" && \
     kind load docker-image "$KUTEST_IMAGE" && \
-    ginkgo run --json-report=report.json
+    ginkgo run --json-report=report.json -v
 
 > go run ./cmd/kutesthtml < report.json > report.html
 ```
 
-## Using with different test frameworks
+### Note on image settings
+
+It's very important that whatever is running locally (on the _controller_) is the same 
+as on the pods spawned by Kutest due to how Kutest identifies its pods (using `runtime.Callers`).
+Keep this in mind when building images. 
+
+- If `KUTEST_IMAGE` is a tagged with 
+something you're planning to overwrite, don't set `KUTEST_DEFAULTIMAGEPULLPOLICY`. 
+- Make sure others are not pushing the same `KUTEST_IMAGE` during your testing.
+
+## Documentation
+
+### Pitfalls
+
+This is a weekend project. I can fix some of these up. But for now these are easier to document. Watch out for:
+
+- Don't `WithJob` from inside a `WithJob`!
+  - I can prevent this from being possible but have not added this safeguard
+  - A `WithJob` should be able to `WithJob` in the future. One scenario is testing the running of jobs from a job (RBAC). However, currently this is not possible due to the single-controller design.
+
+### Using with different test frameworks
 
 You may have an exisiting test suite. For example, let's say you're doing continuous load testing using K6.
 
@@ -68,15 +84,13 @@ It("passes the K6 loadtest", func() {
 })
 ```
 
-## About reporting
+### About reporting
 
 Ginkgo has a built-in report generation system. You can use its output by passing `--json-report=report.json` to `gingko run`. 
 
 `./cmd/kutesthtml` provides a basic `html/template` coverter for this JSON format that uses stdin and stdout. 
 
 On the resulting page you can view the result of the suite, every test, and the logs of the jobs that were started by Kutest.
-
-## How it works
 
 ### WithJob
 
@@ -86,18 +100,30 @@ The first instance of the running test suite is called the _controller_. This is
 
 This gives the appearance of the test function being magically sent to a new job for execution, but without actually sending the code around and all complexity that comes with it.
 
-It's important to note that this library is only intended to be used in test suites that do most of the heavy lifting _inside_ your platform, so inside jobs that are created by the suite. Any logic outside of the helpers offered by Kutest will be executed on every copy it makes of itself.
+Note that this library is only intended to be used in test suites that do most of the heavy lifting _inside_ your platform, so inside jobs that are created by the suite. Any logic outside of the helpers offered by Kutest will be executed on every copy it makes of itself.
+
+<!-- 
+This could eventually be exposed with a WithController() equivalent of WithJob.
+But do we really need that? I don't want to encourage misuse of this by adding it yet,
+until I find a use case for it.
+-->
+
+It is therefore not recommended to pass anything out of your WithJob call since the function you pass to it will not always run, but the other logic in your test will!
 
 ## Project status
 
-Alpha software - API subject to change!
-
-Accepting contributions but make an issue before starting a PR.
+- Weekend project.
+- Experimental library with unstable API.
+- Not known to be used in production.
+- Accepting contributions but make an issue before starting a PR.
 
 ## TODO
 
 - Selective test execution (propagation of Ginkgo test filters)
-- Generic resource helpers e.g. `WithResources([]GenericResource, func())`
+- Generic resource helpers e.g. 
+  - `WithResources([]GenericResource, func())`
+  - `WithJsonnet(string, map[string]any, func())`
+- Multi-controller (WithJob inside WithJob)
 
 ---
 

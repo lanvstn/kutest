@@ -12,4 +12,4 @@ FROM alpine:3.18
 
 USER 1000
 COPY --from=build /kutest/kutest.test /
-ENTRYPOINT [ "/kutest.test" ]
+ENTRYPOINT [ "/kutest.test", "-ginkgo.v" ]

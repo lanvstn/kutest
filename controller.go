@@ -8,21 +8,38 @@ import (
 	"github.com/go-errors/errors"
 	"github.com/samber/lo"
 	batchv1 "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/utils/pointer"
 )
 
+func labels(name string, opts JobOptions) map[string]string {
+	var labels map[string]string
+	if opts.Labels != nil {
+		labels = opts.Labels
+	} else {
+		labels = make(map[string]string)
+	}
+
+	labels["kutest.lanvstn.be/sessID"] = sessID
+	labels["kutest.lanvstn.be/name"] = name
+
+	return labels
+}
+
 func createJob(name string, opts JobOptions) error {
 	uid := Config.UID
+	labels := labels(name, opts)
 
 	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: opts.Namespace,
-			Labels:    opts.Labels,
+			Labels:    labels,
 		},
 		Spec: batchv1.JobSpec{
 			Parallelism:             pointer.Int32(1),
@@ -30,6 +47,9 @@ func createJob(name string, opts JobOptions) error {
 			BackoffLimit:            pointer.Int32(1),
 			TTLSecondsAfterFinished: pointer.Int32(300),
 			Template: v1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: labels,
+				},
 				Spec: v1.PodSpec{
 					SecurityContext: &v1.PodSecurityContext{
 						RunAsNonRoot: pointer.Bool(true),
@@ -83,12 +103,63 @@ func createJob(name string, opts JobOptions) error {
 		},
 	}
 
+	if opts.Expose != nil {
+		job.Spec.Template.Spec.Containers[0].Ports = []v1.ContainerPort{
+			{
+				Name:          "kutest",
+				Protocol:      corev1.ProtocolTCP,
+				ContainerPort: opts.Expose.Port,
+			},
+		}
+	}
+
 	if opts.MutateJob != nil {
 		job = opts.MutateJob(job)
 	}
 
 	_, err := clientset.BatchV1().Jobs(opts.Namespace).Create(context.Background(), job, metav1.CreateOptions{})
 	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func createService(name string, opts JobOptions) error {
+	labels := labels(name, opts)
+
+	svc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: opts.Namespace,
+			Labels:    labels,
+		},
+		Spec: v1.ServiceSpec{
+			Type:     corev1.ServiceTypeClusterIP,
+			Selector: labels,
+			Ports: []v1.ServicePort{
+				{
+					Name:     "kutest",
+					Protocol: corev1.ProtocolTCP,
+					Port:     opts.Expose.Port,
+				},
+			},
+		},
+	}
+
+	_, err := clientset.CoreV1().Services(opts.Namespace).Create(context.Background(), svc, metav1.CreateOptions{})
+	if err != nil {
+		return err
+	}
+
+	opts.Expose.Name <- name
+
+	return nil
+}
+
+func deleteService(name string, opts JobOptions) error {
+	err := clientset.CoreV1().Services(opts.Namespace).Delete(context.Background(), name, metav1.DeleteOptions{})
+	if err != nil && !kerrors.IsNotFound(err) {
 		return err
 	}
 

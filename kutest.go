@@ -3,8 +3,9 @@ package kutest
 import (
 	"crypto/sha1"
 	"encoding/hex"
+	"fmt"
+	"runtime"
 
-	"github.com/onsi/ginkgo/v2"
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 )
@@ -31,10 +32,31 @@ type ConfigSpec struct {
 	DefaultImagePullPolicy string `default:"Always"`
 }
 
-// getShortTestID returns an 8-char hash based on the current spec text
-func getShortTestID() string {
+// shortID creates a short ID that is deterministic in the code location inside the same session.
+// Don't call it from different code location if you want to get the same result.
+func shortID() string {
 	h := sha1.New()
-	_, _ = h.Write([]byte(ginkgo.CurrentSpecReport().FullText()))
+
+	callers := make([]uintptr, 10)
+	_ = runtime.Callers(2, callers)
+	frames := runtime.CallersFrames(callers)
+
+	for {
+		frame, more := frames.Next()
+
+		if frame.Function == "" {
+			panic("function information not available in this build! required by Kutest for ID determination.")
+		}
+
+		h.Write([]byte(fmt.Sprintf("%s:%v", frame.Function, frame.Line)))
+
+		if !more {
+			break
+		}
+	}
+
 	sum := h.Sum(nil)
-	return hex.EncodeToString(sum)[:9]
+
+	// That `k` is not a typo! We need valid DNS names which means no numbers in front.
+	return fmt.Sprintf("k%s-%s", sessID, hex.EncodeToString(sum)[:9])
 }
