@@ -25,11 +25,26 @@ var (
 )
 
 type ConfigSpec struct {
-	KubeconfigPath         string
-	SessID                 string
-	Image                  string `required:"true"`
-	UID                    int64  `default:"1000"`
+	// The path to the kubeconfig to use
+	KubeconfigPath string
+
+	// The image name which will be used by the tests to schedule copies of themselves to jobs
+	Image string `required:"true"`
+
+	// The UID of the user in the scheduled jobs
+	UID int64 `default:"1000"`
+
+	// The image pull policy set in the scheduled jobs.
+	// Use `IfNotPresent` when using `kind load` and local images.
 	DefaultImagePullPolicy string `default:"Always"`
+
+	// SessID is the sessionID passed from the controller.
+	// You should not set this yourself.
+	SessID string
+
+	// PodName is the name of this pod using Kubernetes envvar projection.
+	// You should not set this yourself.
+	PodName string
 }
 
 // shortID creates a short ID that is deterministic in the code location inside the same session.

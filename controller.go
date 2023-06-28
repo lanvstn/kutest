@@ -4,8 +4,11 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"path/filepath"
+	"strings"
 
 	"github.com/go-errors/errors"
+	"github.com/onsi/ginkgo/v2"
 	"github.com/samber/lo"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -62,6 +65,7 @@ func createJob(name string, opts JobOptions) error {
 						{
 							Name:            "kutest",
 							Image:           Config.Image,
+							Args:            ginkgoFocusFlags(),
 							ImagePullPolicy: v1.PullPolicy(Config.DefaultImagePullPolicy),
 							Env: []v1.EnvVar{
 								{
@@ -71,6 +75,14 @@ func createJob(name string, opts JobOptions) error {
 								{
 									Name:  "KUTEST_SESSID",
 									Value: sessID,
+								},
+								{
+									Name: "KUTEST_PODNAME",
+									ValueFrom: &v1.EnvVarSource{
+										FieldRef: &v1.ObjectFieldSelector{
+											FieldPath: "metadata.name",
+										},
+									},
 								},
 							},
 							Resources: v1.ResourceRequirements{
@@ -215,4 +227,21 @@ func retrieveLogs(jobName, namespace string) ([]byte, error) {
 	}
 
 	return io.ReadAll(r)
+}
+
+// ginkgoFocusFlags generates Ginkgo focus flags to only focus on the current test
+func ginkgoFocusFlags() []string {
+	report := ginkgo.CurrentSpecReport()
+
+	// filename is the base only, because the filepath as we see it from the container image may be different.
+	// We can work around this by taking special care when building the container but I want to
+	// keep the amount of "special things you have to know" as low as possible.
+	filename := filepath.Base(report.LeafNodeLocation.FileName)
+
+	return []string{
+		"--ginkgo.focus-file", fmt.Sprintf("%v:%v", filename, report.LeafNodeLocation.LineNumber),
+
+		// Focus is also given because we cannot be 100% sure that the filename+line is unique in the entire test suite
+		"--ginkgo.focus", fmt.Sprintf("%v %v", strings.Join(report.ContainerHierarchyTexts, " "), report.LeafNodeText),
+	}
 }

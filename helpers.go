@@ -3,7 +3,6 @@ package kutest
 import (
 	"encoding/base64"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/onsi/ginkgo/v2"
@@ -35,19 +34,29 @@ type ExposeOptions struct {
 
 // WithJob runs f inside a new pod specified by PodOptions.
 // If the pod fails or anything goes wrong it will call Fail on Ginkgo.
+// Please be aware that since f executes on another pod, you are not able to pass values outside of f!
+//
+// - When on a controller, this runs the job to completion.
+//
+// - When on the job, this runs f.
+//
+// - When on another job, this does nothing.
 func WithJob(opts JobOptions, f func()) {
 	ginkgo.GinkgoHelper()
 
 	id := shortID()
+	selectedPod := strings.HasPrefix(Config.PodName, id+"-")
 
-	hostname, err := os.Hostname()
-	if err != nil {
-		ginkgo.Fail(fmt.Sprintf("cannot get hostname: %v", err))
+	if selectedPod {
+		fmt.Fprintf(ginkgo.GinkgoWriter, "Running WithJob function as %q\n", id)
+		f() // I am on the pod!
 	}
 
-	if strings.HasPrefix(hostname, id+"-") {
-		fmt.Fprintln(ginkgo.GinkgoWriter, "Running WithJob function")
-		f() // I am on the pod!
+	if !selectedPod && !controller {
+		fmt.Fprintf(ginkgo.GinkgoWriter,
+			"WithJob function execution skipped, we are %q but this WithJob wants to run on pods for job %q. "+
+				"This is completely normal if there are multiple WithJob calls in one test.\n",
+			Config.PodName, id)
 	}
 
 	if !controller {
@@ -61,7 +70,7 @@ func WithJob(opts JobOptions, f func()) {
 	fmt.Fprintln(ginkgo.GinkgoWriter, "Creating job")
 
 	// Make the job, we are the controller.
-	err = createJob(id, opts)
+	err := createJob(id, opts)
 	if err != nil {
 		ginkgo.Fail(fmt.Sprintf("pod creation failed: %v", err))
 	}

@@ -100,15 +100,7 @@ The first instance of the running test suite is called the _controller_. This is
 
 This gives the appearance of the test function being magically sent to a new job for execution, but without actually sending the code around and all complexity that comes with it.
 
-Note that this library is only intended to be used in test suites that do most of the heavy lifting _inside_ your platform, so inside jobs that are created by the suite. Any logic outside of the helpers offered by Kutest will be executed on every copy it makes of itself.
-
-<!-- 
-This could eventually be exposed with a WithController() equivalent of WithJob.
-But do we really need that? I don't want to encourage misuse of this by adding it yet,
-until I find a use case for it.
--->
-
-It is therefore not recommended to pass anything out of your WithJob call since the function you pass to it will not always run, but the other logic in your test will!
+It is not recommended to pass anything out of your WithJob call since the function you pass to it will not always run, but the other logic in your test will!
 
 ## Project status
 
@@ -116,14 +108,6 @@ It is therefore not recommended to pass anything out of your WithJob call since 
 - Experimental library with unstable API.
 - Not known to be used in production.
 - Accepting contributions but make an issue before starting a PR.
-
-## TODO
-
-- Selective test execution (propagation of Ginkgo test filters)
-- Generic resource helpers e.g. 
-  - `WithResources([]GenericResource, func())`
-  - `WithJsonnet(string, map[string]any, func())`
-- Multi-controller (WithJob inside WithJob)
 
 ---
 
