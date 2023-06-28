@@ -11,21 +11,33 @@
     {{ range . }}
         <h2>{{ .SuiteDescription }}</h2>
         {{ if .SuiteSucceeded }}
-        <p><strong>🟢 Succeeded!</strong></p>
+        <p><strong>🟢 Suite succeeded!</strong></p>
         {{ else }}
-        <p><strong>⚠️ Failed!</strong></p>
+        <p><strong>⚠️ Suite failed!</strong></p>
         {{ end }}
 
-        {{ range .SpecReports }}
-            <h3>{{ range .ContainerHierarchyTexts }}{{ . }} / {{ end }}{{ .LeafNodeText }}</h3>
+        {{ range $reportno, $report := .SpecReports }}
+            <h4>{{ range $report.ContainerHierarchyTexts }}{{ . }} / {{ end }}{{ $report.LeafNodeText }}</h3>
             <!-- TODO: Add timing info -->
-            <p>State: {{ .State }}</p>
-            {{ range $name, $logs := displayLogs .ReportEntries }}
-                <h4>Pod logs for {{ $name }}</h4>
-                <pre style="background-color: #111111; color: #dddddd; padding: 1em; margin: 1em;" >
-                    {{ $logs }}
-                </pre>
-            {{ end }}
+            {{ $state := print $report.State}}
+            <p>{{ if eq "passed" $state }}🟢 Succeeded!{{ else }}{{ $state }}{{ end }}</p>
+
+            <div class="accordion" id="logs-container-{{ $reportno }}" style="margin-bottom: 1em;">
+                {{ range $name, $logs := displayLogs $report.ReportEntries }}
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#logs-body-{{ $name }}" aria-expanded="false" aria-controls="logs-body-{{ $name }}">
+                        Pod logs for {{ $name }}
+                        </button>
+                    </h2>
+                    <div id="logs-body-{{ $name }}" class="accordion-collapse collapse" data-bs-parent="#logs-container-{{ $reportno }}">
+                        <div class="accordion-body">
+                            <pre style="background-color: #111111; color: #dddddd; padding: 1em; margin: 1em;" >{{ $logs }}</pre>
+                        </div>
+                    </div>
+                </div>
+                {{ end }}
+            </div>
         {{ end }}
     {{ end }}
     </div>
