@@ -11,8 +11,9 @@ import (
 )
 
 type JobOptions struct {
-	Namespace string
-	Labels    map[string]string
+	Namespace      string
+	ServiceAccount string
+	Labels         map[string]string
 
 	// MutateJob apply transformations to the pod that would be created
 	MutateJob func(*batchv1.Job) *batchv1.Job

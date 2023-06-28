@@ -125,6 +125,10 @@ func createJob(name string, opts JobOptions) error {
 		}
 	}
 
+	if opts.ServiceAccount != "" {
+		job.Spec.Template.Spec.ServiceAccountName = opts.ServiceAccount
+	}
+
 	if opts.MutateJob != nil {
 		job = opts.MutateJob(job)
 	}
