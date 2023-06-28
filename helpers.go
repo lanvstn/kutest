@@ -122,6 +122,8 @@ func preventNestedWithJob() {
 	_ = runtime.Callers(2, callers)
 	frames := runtime.CallersFrames(callers)
 
+	alreadyFoundWithJob := false
+
 	for {
 		frame, more := frames.Next()
 
@@ -130,7 +132,10 @@ func preventNestedWithJob() {
 		}
 
 		if strings.Contains(frame.Function, "kutest.WithJob") {
-			panic("You called WithJob inside WithJob! You're doing cool stuff, but Kutest is not quite there yet. In the future this will be supported.")
+			if alreadyFoundWithJob {
+				panic("You called WithJob inside WithJob! You're doing cool stuff, but Kutest is not quite there yet. In the future this will be supported.")
+			}
+			alreadyFoundWithJob = true
 		}
 
 		if !more {
