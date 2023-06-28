@@ -3,6 +3,7 @@ package kutest
 import (
 	"encoding/base64"
 	"fmt"
+	"runtime"
 	"strings"
 
 	"github.com/onsi/ginkgo/v2"
@@ -43,6 +44,8 @@ type ExposeOptions struct {
 // - When on another job, this does nothing.
 func WithJob(opts JobOptions, f func()) {
 	ginkgo.GinkgoHelper()
+
+	preventNestedWithJob()
 
 	id := shortID()
 	selectedPod := strings.HasPrefix(Config.PodName, id+"-")
@@ -106,5 +109,32 @@ func WithJob(opts JobOptions, f func()) {
 
 	if exitErr != nil {
 		ginkgo.Fail(fmt.Sprintf("pod failed: %v", err))
+	}
+}
+
+// preventNestedWithJob prevents calling kutest.WithJob inside kutest.WithJob until supported.
+//
+// This is needed because due to the single-controller design, a job cannot act as a controller itself.
+// Meaning that calling WithJob from WithJob results in nothing at all happening.
+// It's better to panic then.
+func preventNestedWithJob() {
+	callers := make([]uintptr, 10)
+	_ = runtime.Callers(2, callers)
+	frames := runtime.CallersFrames(callers)
+
+	for {
+		frame, more := frames.Next()
+
+		if frame.Function == "" {
+			panic("function information not available in this build! required by Kutest.")
+		}
+
+		if strings.Contains(frame.Function, "kutest.WithJob") {
+			panic("You called WithJob inside WithJob! You're doing cool stuff, but Kutest is not quite there yet. In the future this will be supported.")
+		}
+
+		if !more {
+			break
+		}
 	}
 }
